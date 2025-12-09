@@ -2,8 +2,8 @@
 
 ```bash
 wget https://github.com/prometheus/node_exporter/releases/download/v1.10.2/node_exporter-1.10.2.linux-amd64.tar.gz
-tar -xvf node_exporter-1.7.0.linux-amd64.tar.gz
-sudo mv node_exporter-1.7.0.linux-amd64/node_exporter /usr/local/bin/
+tar -xvf node_exporter-1.10.2.linux-amd64.tar.gz
+sudo mv node_exporter-1.10.2.linux-amd64/node_exporter /usr/local/bin/
 ```
 
 
