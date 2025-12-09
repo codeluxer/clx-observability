@@ -1,0 +1,103 @@
+version: "3.9"
+
+services:
+  ###############################################
+  # 1. Grafana
+  ###############################################
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-12.3.0}
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./data/grafana:/var/lib/grafana
+    restart: always
+
+  ###############################################
+  # 2. Prometheus (替代 Mimir，简单环境足够)
+  ###############################################
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION:-v3.8.0}
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./data/prometheus:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-remote-write-receiver"
+      - "--web.enable-otlp-receiver"
+      - "--enable-feature=exemplar-storage"
+    restart: always
+
+  ###############################################
+  # 3. Loki (Logs)
+  ###############################################
+  loki:
+    image: grafana/loki:${LOKI_VERSION:-3.6.2}
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - ./data/loki:/loki
+      - ./data/loki-data:/data
+    command: "-config.file=/etc/loki/loki-config.yaml"
+    restart: always
+
+  ###############################################
+  # 4. Tempo (Traces)
+  ###############################################
+  tempo:
+    image: grafana/tempo:${TEMPO_VERSION:-2.9.0}
+    container_name: tempo
+    ports:
+#      - "4317:4317" # OTLP gRPC
+#      - "4318:4318" # OTLP HTTP
+      - "3200:3200" # Tempo /api/search
+    volumes:
+      - ./tempo/tempo-config.yaml:/etc/tempo/tempo.yaml
+      - ./data/tempo:/var/tempo
+      - ./data/tempo-data:/data
+    command: "-config.file=/etc/tempo/tempo.yaml"
+    restart: always
+
+  ###############################################
+  # 5. Pyroscope (Continuous Profiling)
+  ###############################################
+  pyroscope:
+    image: grafana/pyroscope:${PYROSCOPE_VERSION:-1.16.0}
+    container_name: pyroscope
+    ports:
+      - "4040:4040"
+    volumes:
+      - ./pyroscope/pyroscope.yaml:/etc/pyroscope/config.yaml
+      - ./data/pyroscope:/var/lib/pyroscope
+    command: "-config.file=/etc/pyroscope/config.yaml"
+    restart: always
+
+  ###############################################
+  # 6. OpenTelemetry Collector
+  ###############################################
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:${OPENTELEMETRY_COLLECTOR_VERSION:-0.139.0}
+    container_name: otelcol
+    ports:
+      - "4317:4317" # OTLP gRPC 接收应用 metrics/logs/traces
+      - "4318:4318" # OTLP HTTP
+    volumes:
+      - ./otelcol/otel-collector.yaml:/etc/otelcol/config.yaml
+    command: "--config=/etc/otelcol/config.yaml --feature-gates=service.profilesSupport"
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+      - pyroscope
+    restart: always
+
